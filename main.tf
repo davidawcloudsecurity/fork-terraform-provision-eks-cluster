@@ -1,12 +1,9 @@
-# Copyright (c) HashiCorp, Inc.
-# SPDX-License-Identifier: MPL-2.0
-
+# AWS Provider Configuration
 provider "aws" {
   region = var.region
 }
 
-# Filter out local zones, which are not currently supported 
-# with managed node groups
+# Filter out local zones, which are not currently supported with managed node groups
 data "aws_availability_zones" "available" {
   filter {
     name   = "opt-in-status"
@@ -14,15 +11,18 @@ data "aws_availability_zones" "available" {
   }
 }
 
+# Local values
 locals {
   cluster_name = "education-eks-${random_string.suffix.result}"
 }
 
+# Generate a random suffix for cluster name
 resource "random_string" "suffix" {
   length  = 8
   special = false
 }
 
+# VPC Module
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "5.8.1"
@@ -48,6 +48,7 @@ module "vpc" {
   }
 }
 
+# EKS Module
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.8.5"
@@ -58,49 +59,38 @@ module "eks" {
   cluster_endpoint_public_access           = true
   enable_cluster_creator_admin_permissions = true
 
-  cluster_addons = {
-    aws-ebs-csi-driver = {
-      service_account_role_arn = module.irsa-ebs-csi.iam_role_arn
+  # EKS Fargate Profile Configuration
+  fargate_profile = {
+    default = {
+      name = "default"
+
+      selectors = [{
+        namespace = "default"
+      }]
+
+      # Optional: You can specify subnet IDs if needed
+      # subnet_ids = module.vpc.private_subnets
+    }
+
+    kube-system = {
+      name = "kube-system"
+
+      selectors = [{
+        namespace = "kube-system"
+      }]
     }
   }
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
-
-  eks_managed_node_group_defaults = {
-    ami_type = "AL2_x86_64"
-
-  }
-
-  eks_managed_node_groups = {
-    one = {
-      name = "node-group-1"
-
-      instance_types = ["t3.small"]
-
-      min_size     = 1
-      max_size     = 3
-      desired_size = 2
-    }
-
-    two = {
-      name = "node-group-2"
-
-      instance_types = ["t3.small"]
-
-      min_size     = 1
-      max_size     = 2
-      desired_size = 1
-    }
-  }
 }
 
-
-# https://aws.amazon.com/blogs/containers/amazon-ebs-csi-driver-is-now-generally-available-in-amazon-eks-add-ons/ 
+# IAM Policy for EBS CSI Driver
 data "aws_iam_policy" "ebs_csi_policy" {
   arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
 
+# IAM Role for EBS CSI Driver using IRSA
 module "irsa-ebs-csi" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
   version = "5.39.0"
