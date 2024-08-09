@@ -104,7 +104,7 @@ module "irsa-ebs-csi" {
 
 # IAM Policy for EBS CSI Driver
 data "aws_iam_policy" "aws_worker_node_policy" {
-  arn = "arn:aws:iam::aws:policy/service-role/AmazonEKSWorkerNodePolicy"
+  arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
 }
 
 # IAM Role for EBS CSI Driver using IRSA
