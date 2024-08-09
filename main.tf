@@ -60,7 +60,7 @@ module "eks" {
   enable_cluster_creator_admin_permissions = true
 
   # EKS Fargate Profile Configuration
-  fargate_profile = {
+  fargate_profiles = {
     default = {
       name = "default"
 
