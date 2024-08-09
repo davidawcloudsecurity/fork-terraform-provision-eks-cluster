@@ -124,8 +124,14 @@ data "aws_iam_policy" "ecr_read_only" {
   arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# Attach ECR Read-Only Policy to an Existing Role
-resource "aws_iam_role_policy_attachment" "ecr_read_only_attachment" {
-  role       = "AmazonEC2ContainerRegistryReadOnly-${module.eks.cluster_name}"
-  policy_arn  = data.aws_iam_policy.ecr_read_only.arn
+# IAM Role for EBS CSI Driver using IRSA
+module "ecr_read_only_policy" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-assumable-role-with-oidc"
+  version = "5.39.0"
+
+  create_role                   = true
+  role_name                     = "AmazonEC2ContainerRegistryReadOnly-${module.eks.cluster_name}"
+  provider_url                  = module.eks.oidc_provider
+  role_policy_arns              = [data.aws_iam_policy.aws_worker_node_policy.arn]
+  oidc_fully_qualified_subjects = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
 }
